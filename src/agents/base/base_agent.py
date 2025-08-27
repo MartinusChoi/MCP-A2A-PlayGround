@@ -1,4 +1,9 @@
+"""
+Base Class for Agents.
+"""
+
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import StateGraph
 from langgraph.store.base import BaseStore
@@ -10,16 +15,22 @@ from abc import ABC, abstractmethod
 
 class BaseGraphAgent(ABC):
     """
-    LangGraph의 Graph Agent를 위한 Base Class.
+    LangGraph 기반 Agent의 Base Class.
 
-    Sub-Graph와 Main-Graph를 객체 지향적으로 구성할 수 있도록 공통 기능 제공.
+    Sub-Graph와 Main-Graph를 객체 지향적으로 구성할 수 있도록 공통 기능 제공합니다.
     """
 
+    # -----------------------------------------------------------
+    # Class Variables
+    # -----------------------------------------------------------
     NODE_NAMES: ClassVar[dict[str, str]] = {}
 
+    # -----------------------------------------------------------
+    # Initialization
+    # -----------------------------------------------------------
     def __init__(
         self,
-        model: BaseChatModel | None = None,
+        model: BaseChatModel | ChatOpenAI | None = None,
         state_schema: type | None = None,
         input_state: type | None = None,
         output_state: type | None = None,
@@ -61,21 +72,27 @@ class BaseGraphAgent(ABC):
         # 그래프 자동 빌드 여부 (비동기 초기화가 필요한 서브클래스에서 지연 빌드 용도)
         if auto_build:
             self.build_graph()
-        
-        def get_note_name(self, key="DEFAULT"):
-            """
-            노드 이름을 가져오는 메서드.
-
-            Args:
-                key: 노드 이름 키
-            
-            Returns:
-                해강 키에 대한 노드 이름
-            """
-            if key not in self.NODE_NAMES:
-                raise ValueError(f"노드 이름 키 '{key}'가 정의되어 있지 않습니다.")
-            return self.NODE_NAMES.get(key)
     
+    # -----------------------------------------------------------
+    # Utility Methods
+    # -----------------------------------------------------------        
+    def get_note_name(self, key="DEFAULT"):
+        """
+        노드 이름을 가져오는 메서드.
+
+        Args:
+            key: 노드 이름 키
+        
+        Returns:
+            해강 키에 대한 노드 이름
+        """
+        if key not in self.NODE_NAMES:
+            raise ValueError(f"노드 이름 키 '{key}'가 정의되어 있지 않습니다.")
+        return self.NODE_NAMES.get(key)
+    
+    # -----------------------------------------------------------
+    # Should Implement before using Agent
+    # -----------------------------------------------------------
     @abstractmethod
     def _init_nodes(self, graph: StateGraph):
         """
@@ -95,7 +112,10 @@ class BaseGraphAgent(ABC):
             graph: 초기화할 StateGraph 객체
         """
         pass
-    
+
+    # -----------------------------------------------------------
+    # Build Graph
+    # -----------------------------------------------------------
     def build_graph(self):
         """
         그래프를 구축하는 메서드.
