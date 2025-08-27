@@ -1,0 +1,6 @@
+.env
+**/__pycache__/
+**/_DS_Store/
+.cursor/
+.vscode/
+shrimp_data/
