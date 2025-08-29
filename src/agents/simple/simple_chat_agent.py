@@ -2,7 +2,7 @@
 Simple Chat Agent
 """
 
-from agent.base.base_agent import BaseLangGraphAgent
+from src.agents.base.base_agent import BaseLangGraphAgent
 
 from typing import ClassVar, TypedDict
 from typing_extensions import Annotated
