@@ -18,7 +18,6 @@ class TavilyMCPServer(BaseMCPServer):
     def _register_tools(self) -> None:
         @self.mcp.tool()
         async def search_web(
-            self,
             query: str,
             search_depth: Literal["basic", "advanced"] = "basic",
             topic: Literal["general", "news", "finance" ] = "general",
@@ -56,7 +55,8 @@ class TavilyMCPServer(BaseMCPServer):
                 country : Country (ISO 3166-1 alpha-2)
             """
             try:
-                return await self.tavily_client.search(
+                self.logger.info(f"Calling 'search_web' tool with query: '{query}'")
+                result = await self.tavily_client.search(
                     query=query,
                     search_depth=search_depth,
                     topic=topic,
@@ -73,7 +73,10 @@ class TavilyMCPServer(BaseMCPServer):
                     timeout=timeout,
                     country=country,
                 )
+                self.logger.info(f"Search web results: {len(result)}")
+                return result
             except Exception as error:
+                self.logger.error(f"Error in 'search_web': {error}")
                 return self.create_error_response(
                     error=error, 
                     query=query, 
@@ -82,7 +85,6 @@ class TavilyMCPServer(BaseMCPServer):
         
         @self.mcp.tool()
         async def search_finance(
-            self,
             query: str,
             search_depth: Literal["basic", "advanced"] = "basic",
             time_range: Literal["day", "week", "month", "year"] = None,
@@ -118,7 +120,8 @@ class TavilyMCPServer(BaseMCPServer):
                 country : Country (ISO 3166-1 alpha-2)
             """
             try:
-                return await self.tavily_client.search(
+                self.logger.info(f"Calling 'search_finance' tool with query: '{query}'")
+                result = await self.tavily_client.search(
                     query=query,
                     search_depth=search_depth,
                     topic='finance',
@@ -135,7 +138,10 @@ class TavilyMCPServer(BaseMCPServer):
                     timeout=timeout,
                     country=country,
                 )
+                self.logger.info(f"Search finance results: {len(result)}")
+                return result
             except Exception as error:
+                self.logger.error(f"Error in 'search_finance': {error}")
                 return self.create_error_response(
                     error=error,
                     query=query,
@@ -144,7 +150,6 @@ class TavilyMCPServer(BaseMCPServer):
 
         @self.mcp.tool()
         async def search_news(
-            self,
             query: str,
             search_depth: Literal["basic", "advanced"] = "basic",
             time_range: Literal["day", "week", "month", "year"] = None,
@@ -180,7 +185,8 @@ class TavilyMCPServer(BaseMCPServer):
                 country : Country (ISO 3166-1 alpha-2)
             """
             try:
-                return await self.tavily_client.search(
+                self.logger.info(f"Calling 'search_news' tool with query: '{query}'")
+                result = await self.tavily_client.search(
                     query=query,
                     search_depth=search_depth,
                     topic='news',
@@ -197,7 +203,10 @@ class TavilyMCPServer(BaseMCPServer):
                     timeout=timeout,
                     country=country,
                 )
+                self.logger.info(f"Search news results: {len(result)}")
+                return result
             except Exception as error:
+                self.logger.error(f"Error in 'search_news': {error}")
                 return self.create_error_response(
                     error=error,
                     query=query,

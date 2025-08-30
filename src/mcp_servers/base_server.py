@@ -55,6 +55,7 @@ class BaseMCPServer(ABC):
         server_version: str | None = None,
         transport: Literal['streamable_http', 'stdio'] = 'streamable_http',
         json_response: bool = False,
+        enable_swagger: bool = False,
     ):
         """
         Initialize MCP Server.
@@ -71,6 +72,7 @@ class BaseMCPServer(ABC):
         self.server_version = server_version
         self.transport = transport
         self.json_response = json_response
+        self.enable_swagger = enable_swagger
 
         # Create FastMCP Instance
         self.mcp = FastMCP(
@@ -84,6 +86,7 @@ class BaseMCPServer(ABC):
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s > %(message)s'))
         self.logger.addHandler(stream_handler)
+        self.mcp.logger = self.logger
 
         # Initialize Clients
         self._initialize_clients()
@@ -204,8 +207,7 @@ class BaseMCPServer(ABC):
         self.mcp.add_middleware(self.ErrorHandlingMiddleware())
         self.mcp.add_middleware(self.TimingMiddleware())
         self.mcp.add_middleware(self.LoggingMiddleware())
-
-
+    
     # -----------------------------------------------------------
     # Core Middleware Classes
     # -----------------------------------------------------------
@@ -228,7 +230,7 @@ class BaseMCPServer(ABC):
             """
 
             try:
-                return await call_next()
+                return await call_next(context=context)
 
             except Exception as error:
                 # Try convert Exception into standard error response model
@@ -271,7 +273,7 @@ class BaseMCPServer(ABC):
                 else:
                     logger.warning("Logger Not Found in Server")
 
-                response = await call_next()
+                response = await call_next(context=context)
 
                 # Logging Success Response
                 if logger:
@@ -284,7 +286,7 @@ class BaseMCPServer(ABC):
                 return response
             except Exception:
                 raise
-    
+        
     class TimingMiddleware(Middleware):
         """
         Calculate Processing Time of Tool Call.
@@ -298,7 +300,7 @@ class BaseMCPServer(ABC):
             start = time.perf_counter()
 
             try:
-                return await call_next()
+                return await call_next(context=context)
             finally:
                 duration_ms = (time.perf_counter() - start) * 1000.0
                 try:

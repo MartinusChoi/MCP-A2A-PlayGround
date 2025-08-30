@@ -3,7 +3,6 @@ import sys
 import os
 from uuid import uuid4
 from dotenv import load_dotenv
-from langchain_core.runnables import RunnableConfig
 
 # 프로젝트 루트를 Python 경로에 추가
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -11,6 +10,7 @@ sys.path.insert(0, project_root)
 
 from src.utils.env_validator import get_env_variable
 from src.agents.tavily.tavily_search_agent import TavilySearchAgent
+from src.agents.tavily.tavily_search_agent import create_run_config
 from langchain_core.messages import (
     HumanMessage,
     AIMessage
@@ -30,7 +30,7 @@ async def main():
         print("Creating Tavily Search Agent...")
         agent = await TavilySearchAgent.create(
             model=ChatOpenAI(model="gpt-4o", temperature=0),
-            agent_name="TavilySearchAgent"
+            agent_name="TavilySearchAgent",
         )
         print("Agent created successfully!")
     except Exception as e:
@@ -41,8 +41,8 @@ async def main():
 
     query_list = [
         "OpenAI의 2025년 8월 기준 가장 최근에 공개된 오픈소스 모델에 대해 자세히 정리해주세요.",
-        # "2025년 8월 기준 최신 AI 트렌드에 대해 조사하여 정리해주세요.",
-        # "2025년 8월 29일 기준 최신 뉴스에 대해 조사하여 정리해주세요."
+        "2025년 8월 기준 최신 AI 트렌드에 대해 조사하여 정리해주세요.",
+        "2025년 8월 29일 기준 최신 뉴스에 대해 조사하여 정리해주세요."
     ]
 
     for idx, query in enumerate(query_list):
@@ -51,10 +51,13 @@ async def main():
         print("\n", "="*50)
 
         try:
-            agent_config = RunnableConfig(
-                configurable={
-                    "thread_id" : str(uuid4())
-                }
+            agent_config = create_run_config(
+                run_name=f"TavilySearchAgent_{idx+1}",
+                tags=["tavily-search"],
+                metadata={
+                    "query" : query
+                },
+                enable_langsmith_tracing=True
             )
 
             async for chunk in agent.graph.astream({"messages": [HumanMessage(content=query)]}, config=agent_config):
@@ -75,6 +78,7 @@ async def main():
                                     print()
 
                                 if msg.content:
+                                    print("\n[AI]")
                                     print(msg.content)
         
         except Exception as e:

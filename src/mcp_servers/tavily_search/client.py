@@ -10,7 +10,7 @@ from typing import Any, Literal, Sequence, Union, cast
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s > %(message)s'))
+stream_handler.setFormatter(logging.Formatter('[%(levelname)s] %(asctime)s > %(message)s'))
 logger.addHandler(stream_handler)
 
 class TavilySearchClient:
@@ -32,7 +32,6 @@ class TavilySearchClient:
 
         if self.api_key == "INPUT_YOUR_API_KEY":
             logger.warning("Tavily API Key is not set. Please set TAVILY_API_KEY in env.")
-            raise EnvironmentError("Tavily API Key is not set. Please set TAVILY_API_KEY in env.")
     
     async def search(
         self,
@@ -102,5 +101,7 @@ class TavilySearchClient:
         
         # Execute Search
         results = client.search(**search_params)
+
+        logger.info(f"Search Results: {len(results)}")
 
         return cast(dict[str, Any], results)

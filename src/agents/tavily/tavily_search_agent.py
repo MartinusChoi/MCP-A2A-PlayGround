@@ -1,11 +1,13 @@
 """
 Tavily Search Agent
 """
-
+import os
+from uuid import uuid4
+from langgraph.graph.state import Runnable
 from pydantic.v1.networks import MultiHostDsn
 from src.agents.base.base_agent import BaseLangGraphAgent
 
-from typing import TypedDict, ClassVar
+from typing import TypedDict, ClassVar, Any
 from typing_extensions import Annotated
 
 from langchain_openai import ChatOpenAI
@@ -14,6 +16,7 @@ from langchain_core.messages import (
     AIMessage,
     BaseMessage,
 )
+from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import StateGraph, START, END, add_messages
 from langgraph.prebuilt import create_react_agent
@@ -117,6 +120,7 @@ class TavilySearchAgent(BaseLangGraphAgent):
         input_schema: InputSchema | None = None,
         output_schema: OutputSchema | None = None,
         agent_name: str | None = None,
+        enable_langsmith_tracing: bool = False,
     ) -> "TavilySearchAgent":
         """
         Async Initialize Tavily Search Agent
@@ -162,3 +166,34 @@ class TavilySearchAgent(BaseLangGraphAgent):
             tools=self.tools,
             prompt=prompt
         )
+    
+# -----------------------------------------------------------
+# run config utility (include langsmith tracing)
+# -----------------------------------------------------------
+def create_run_config(
+        run_name: str | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        enable_langsmith_tracing: bool = False
+    ) -> RunnableConfig:
+    """
+    Create RunnableConfig for LangSmith Tracing
+    """
+    if enable_langsmith_tracing:
+        config = RunnableConfig(
+            configurable={"run_id": uuid4()},
+            run_name=run_name or f"DefaultRunName",
+            run_id=uuid4(),
+            tags=tags or ["tavily-search"],
+            metadata=metadata or {
+                "agent_type" : "tavily-search",
+                "version" : "0.0.1",
+                "environment" : os.getenv("ENV", "development")
+            }
+        )
+    else:
+        config = RunnableConfig(
+            configurable={"run_id": uuid4()}
+        )
+
+    return config
