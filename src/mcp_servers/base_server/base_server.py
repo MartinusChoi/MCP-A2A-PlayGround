@@ -1,124 +1,121 @@
 """
-Base MCP Server Class
-
-Each MCP Server Should Implement Based on this Base Server Class
+Base MCP Server Class.
 """
 
-from abc import ABC, abstractmethod
 import logging
 
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Literal, Any
-from starlette.responses import JSONResponse
-from starlette.requests import Request
-from fastmcp.server.http import StarletteWithLifespan
-from fastmcp.server.middleware import Middleware, MiddlewareContext
+from typing import Any
 
-# -----------------------------------------------------------------------
-# Standard MCP Server Response Model
-# -----------------------------------------------------------------------
+from abc import ABC, abstractmethod
+
+
+# ------------------------------------------------------------------------------------------------
+# Standard Succuess/Error Response Models.
+# ------------------------------------------------------------------------------------------------
 class ResponseModel(BaseModel):
     """
-    Standard MCP Server Response Model.
+    Standard Success response Model.
+
+    Args:
+        success: Boolean value of Success/Failure.
+        data: Data contents for Request.
+        query: Requested initial query.
     """
 
     model_config = ConfigDict(extra='allow')
 
-    success = Field(..., description="Boolean Value of Success of Failure")
-    query = Field(..., description="Requested Query from Client")
-    data = Field(None, descripttion="Response Data of Client Request")
+    success = Field(..., description="Boolean value of Success/Failure.")
+    data = Field(None, description="Data contents for Request.")
+    query = Field(..., description="Requested initial query.")
 
 class ErrorResponseModel(BaseModel):
     """
-    Standard MCP Server Error Respnose Model
-    """
+    Standard Error response model.
 
+    Args:
+        success: Boolean value of Success/Failure (always False).
+        error: Error Message occured during requested process.
+        query: Requested initial query.
+        func_name: Function name that error occured.
+    """
+    
     model_config = ConfigDict(extra='allow')
 
-    success = Field(False, description="Boolean value of Success or Failure (Always False)")
-    error = Field(..., description="Error Message")
-    func_name = Field(None, description="Function name that error occured")
-    
+    success = Field(False, description="Boolean value of Success/Failure (always False).")
+    error = Field(..., description="Error Message occured during requested process.")
+    query = Field(..., description="Requested initial query.")
+    func_name = Field(None, description="Function name that error occured.")
 
-# -----------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------------------------
 # Base MCP Server Class
-# -----------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------
 class BaseMCPServer(ABC):
-    MCP_PATH = '/mcp/'
+    """
+    Base MCP Server Class.
+
+    Each MCP Server should implement based on this class.
+    Implment common features of all mcp servers.
+    """
 
     def __init__(
         self,
-        server_name: str | None = None,
-        server_instruction: str | None = None,
-        server_version: str | None = None,
-        transport: Literal['streamable-http', 'stdio'] = 'streamable-http'
-    )->None:
-        """
-        Initialize Server Instance
-
-        Args:
-            server_name: str | None = None : MCP Server Name
-            server_instruction: str | None = None : MCP Server instruction
-            server_version: str | None = None : MCP Server version
-        """
-
+        server_name,
+        server_instruction,
+    ) -> None:
+        
         from fastmcp import FastMCP
 
-        # create fastmcap instance
+        # create FastMCP Instance
         self.mcp = FastMCP(
-            nams=server_name,
+            name=server_name,
             instructions=server_instruction,
-            version=server_version,
         )
 
-        self.transport = transport
+        # Add Logger in fastmcp context
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.INFO)
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s - line %(lineno)s in %(filename)s : %(message)s'))
+        self.logger.addHandler(stream_handler)
+        self.mcp.logger = self.logger
 
-        # set logger in mcp context
-        logger = logging.getLogger(server_name or self.__class__.__name__)
-        logger.setLevel(logging.INFO)
-        logger.addHandler(logging.StreamHandler())
-        self.mcp.logger = logger
-
-        # initialize client
+        # Initialize MCP Tool clients
         self._initialize_clients()
 
-        # register mcp tools
-        self._register_tools()
+        # Registry MCP Tools
+        self._registry_tools()
+
+        # Add Middlewares
     
 
-    # -----------------------------------------------------------------------
-    # Should Implement before Using
-    # -----------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------
+    # Settings for MCP Tools. Should implement specifics for specific MCP Server.
+    # ------------------------------------------------------------------------------------------------
     def _initialize_clients(self)->None:
         """
-        Initialize Client
+        Initialize MCP Tool clients.
         """
-        pass
+        raise NotImplementedError("Initialize Method for MCP Tools should be implemented.")
 
-    def _register_tools(self)->None:
+    def _registry_tools(self)->None:
         """
-        Register MCP Tools
+        Define and Registry MCP Tools in Server.
         """
-        pass
-
-    # -----------------------------------------------------------------------
-    # create response
-    # -----------------------------------------------------------------------
-    def create_response(
+        raise NotImplementedError("MCP Tools should be defined and registred.")
+    
+    # ------------------------------------------------------------------------------------------------
+    # Create Server's Success/Error Response with Standard Response Models.
+    # ------------------------------------------------------------------------------------------------
+    async def create_response(
         self,
-        success:bool,
         query:str,
-        data:str|None=None
-    )->dict[str, Any]:
-        """
-        Create Response.
-
-        Args:
-            success = Boolean Value of Success of Failure
-            query = Requested Query from Client
-            data = Response Data of Client Request
-        """
-
+        success:bool = True,
+        data: str | Any | None = None,
+    ) -> dict[str, Any]:
         _response = ResponseModel(
             success=success,
             query=query,
@@ -127,74 +124,20 @@ class BaseMCPServer(ABC):
 
         return _response.model_dump(exclude_none=True)
     
-    def create_error_response(
-            self,
-            error:str,
-            func_name:str|None=None,
-    )-> dict[str, Any]:
-        """
-        Create Error Response
-
-        Args:
-            error = Error Message
-            func_name = Function name that error occured
-        """
+    async def create_error_response(
+        self,
+        error: str,
+        query: str,
+        func_name:Any|None = None
+    ) -> dict[str, Any]:
         _error_response = ErrorResponseModel(
-            successs=False,
+            success=False,
             error=error,
+            query=query,
             func_name=func_name
         )
 
         return _error_response.model_dump(exclude_none=True)
-
-
-    # -----------------------------------------------------------------------
-    # create server instance
-    # -----------------------------------------------------------------------
-    def create_app(self)->StarletteWithLifespan:
-        if getattr(self, "_health_endpoint_registered", None):
-            @self.mcp.custom_route("/health", methods=["GET"], include_in_schema=True)
-            async def is_healthy(request:Request)->JSONResponse:
-                _response = ResponseModel(
-                    success=True,
-                    query="MCP Server Health Check",
-                    data="OK"
-                )
-
-                return JSONResponse(_response)
-            setattr(self, "_health_endpoint_registered", True)
+    
+    
         
-        return self.mcp.http_app(
-            path=self.MCP_PATH,
-            transport=self.transport,
-        )
-    
-    # -----------------------------------------------------------------------
-    # add middleware in mcp server
-    # -----------------------------------------------------------------------
-    def add_middleware(self)->None:
-        """
-        Add Middlewares in MCP Server
-        """
-
-        self.mcp.add_middleware()
-        self.mcp.add_middleware()
-        self.mcp.add_middleware()
-    
-    # -----------------------------------------------------------------------
-    # Core Middle Ware Class
-    # -----------------------------------------------------------------------
-    class ErrorHandlingMiddleware(MiddlewareContext):
-        async def on_call_tool(self, context:MiddlewareContext, call_next):
-            try:
-                return await call_next(context=context)
-            except Exception as error:
-                # Try Convert Error message into standrade error response model
-                try:
-                    server = context.fastmcp_context.fastmcp
-                    logger = getattr(server, "logger", None)
-
-                    if logger:
-                        logger.error(f"Tool Error Occured : {error}")
-                except:
-                    pass
